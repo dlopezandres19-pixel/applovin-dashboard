@@ -46,7 +46,8 @@ DATA = ROOT / "data"
 SNAPSHOTS = DATA / "snapshots.csv"      # every API pull, never overwritten
 WEEKLY = DATA / "weekly.csv"            # one row per week, with metrics
 RESTATEMENTS = DATA / "restatements.csv"
-MULTIPLES = DATA / "multiples.csv"      # optional, filled later from the Excel
+VALUATION_XLSX = DATA / "APP_Dashboard.xlsx"   # Capital IQ export, updated manually
+VALUATION_TABS = {"pe": "PE NTM", "ev": "EVEBITDA NTM"}
 DASHBOARD = ROOT / "docs" / "index.html"
 TEMPLATE = ROOT / "dashboard_template.html"
 
@@ -285,6 +286,40 @@ def build_weekly(snaps: list[dict], restatements: list[dict]) -> list[dict]:
     return [{k: ("" if r.get(k) is None else r.get(k)) for k in WEEKLY_FIELDS} for r in rows]
 
 
+# ── valuation (Capital IQ workbook) ──────────────────────────────────────────
+def read_valuation() -> dict | None:
+    """Reads the 'PE NTM' and 'EVEBITDA NTM' tabs. Layout per tab: a row whose
+    column B is 'Pricing Date', company names to its right, one row per month
+    below. 'NM' (not meaningful) and blanks become null. Uses the values cached
+    by Excel, so save the workbook after Capital IQ refreshes before uploading."""
+    if not VALUATION_XLSX.exists():
+        return None
+    import openpyxl
+    wb = openpyxl.load_workbook(VALUATION_XLSX, data_only=True, read_only=True)
+    out: dict = {}
+    for key, tab in VALUATION_TABS.items():
+        if tab not in wb.sheetnames:
+            continue
+        rows = list(wb[tab].iter_rows(values_only=True))
+        hdr = next((i for i, r in enumerate(rows) if len(r) > 1 and str(r[1]).strip().lower() == "pricing date"), None)
+        if hdr is None:
+            continue
+        names = [str(c).strip() for c in rows[hdr][2:] if c not in (None, "")]
+        tickers = [str(c).strip() if c else "" for c in rows[hdr - 1][2:2 + len(names)]] if hdr else [""] * len(names)
+        dates, series = [], {n: [] for n in names}
+        for r in rows[hdr + 1:]:
+            d = r[1] if len(r) > 1 else None
+            if not isinstance(d, (datetime, date)):
+                continue
+            dates.append(d.strftime("%Y-%m-%d"))
+            for j, n in enumerate(names):
+                v = r[2 + j] if len(r) > 2 + j else None
+                series[n].append(round(float(v), 2) if isinstance(v, (int, float)) else None)
+        out[key] = {"tab": tab, "dates": dates, "names": names, "tickers": tickers, "series": series}
+    wb.close()
+    return out or None
+
+
 # ── dashboard ────────────────────────────────────────────────────────────────
 def build_dashboard() -> None:
     snaps = read_csv(SNAPSHOTS)
@@ -299,7 +334,7 @@ def build_dashboard() -> None:
         "pending_weeks": sorted(pending_weeks(dated)),
         "weekly": weekly,
         "restatements": restatements[-200:],
-        "multiples": read_csv(MULTIPLES),
+        "valuation": read_valuation(),
     }
     html = TEMPLATE.read_text(encoding="utf-8").replace(
         "/*__DATA__*/null", json.dumps(payload, ensure_ascii=False).replace("</", "<\\/"))

@@ -3,348 +3,427 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AppLovin Pixel Tracker</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>AppLovin Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root {
-  color-scheme: light;
-  --bg: #f4f3ef;
-  --surface: #fcfcfb;
-  --border: #e3e1da;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #7a7974;
-  --grid: #ebe9e3;
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --pos: #2a78d6;
-  --neg: #e34948;
-  --good: #0ca30c;
-  --critical: #d03b3b;
-  --accent: #0d366b;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --bg: #121211;
-    --surface: #1a1a19;
-    --border: #2e2e2b;
-    --text-primary: #f0efec;
-    --text-secondary: #c3c2b7;
-    --text-muted: #8f8e86;
-    --grid: #2a2a27;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --pos: #3987e5;
-    --neg: #e66767;
-    --accent: #86b6ef;
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap');
+  :root {
+    --bg:#f7f8fa; --card:#ffffff; --border:#e4e7ec; --border-light:#f0f2f5;
+    --text-primary:#1a1a2e; --text-secondary:#344054; --text-muted:#667085; --text-light:#98a2b3;
+    --accent:#1b3a5c; --accent-light:#2e6da4; --accent-gold:#c4953a;
+    --c-app:#1b3a5c; --c-peer1:#e8a020; --c-peer2:#6B4EAF; --c-peer3:#1a7a6e;
+    --positive:#2e9e6b; --negative:#c0392b;
+    --serif:'Lucida Bright','Playfair Display',Georgia,serif;
   }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #121211; --surface: #1a1a19; --border: #2e2e2b;
-  --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
-  --grid: #2a2a27; --series-1: #3987e5; --series-2: #d95926;
-  --pos: #3987e5; --neg: #e66767; --accent: #86b6ef;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--text-primary);
-  font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 14px; line-height: 1.5;
-}
-.wrap { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 24px; }
-.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 4px; }
-h1 { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
-h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
-.sub { color: var(--text-secondary); margin: 0 0 16px; font-size: 13px; }
-.meta { color: var(--text-muted); font-size: 12px; text-align: right; }
-.section-title { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 36px 0 12px; font-weight: 500; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
-.kpi .label { font-size: 12px; color: var(--text-secondary); }
-.kpi .value { font-size: 26px; font-weight: 600; font-family: "IBM Plex Mono", monospace; letter-spacing: -.02em; margin-top: 2px; }
-.kpi .note { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
-.up { color: var(--good); } .down { color: var(--critical); }
-.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 18px 14px; min-width: 0; }
-.card.full { grid-column: 1 / -1; }
-.chart-box { position: relative; height: 260px; }
-.card.full .chart-box { height: 300px; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-.toolbar button {
-  font: inherit; font-size: 12px; padding: 5px 12px; border-radius: 999px; cursor: pointer;
-  border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
-}
-.toolbar button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface); border-color: var(--text-primary); }
-.empty { color: var(--text-muted); font-size: 13px; padding: 28px 0; text-align: center; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-th, td { padding: 7px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border); }
-th:first-child, td:first-child { text-align: left; }
-th { font-weight: 500; color: var(--text-secondary); font-size: 11.5px; position: sticky; top: 0; background: var(--surface); }
-td { font-family: "IBM Plex Mono", monospace; }
-tr.flag td { background: color-mix(in srgb, var(--neg) 9%, transparent); }
-.badge { display: inline-block; font-family: "IBM Plex Sans", sans-serif; font-size: 10.5px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--critical); color: var(--critical); }
-.notes { font-size: 12.5px; color: var(--text-secondary); }
-.notes li { margin-bottom: 6px; }
-details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5px; margin-top: 10px; }
-.theme-toggle { font: inherit; font-size: 12px; background: none; border: 1px solid var(--border); color: var(--text-secondary); padding: 4px 10px; border-radius: 999px; cursor: pointer; margin-top: 6px; }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text-primary);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;font-size:13px;}
+  .header{background:#1b3a5c;border-bottom:1px solid #15304d;padding:20px 44px 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .header-left{display:flex;flex-direction:column;}
+  .header h1{font-family:var(--serif);font-size:22px;font-weight:700;color:#ffffff;}
+  .header p{font-size:10px;color:rgba(255,255,255,0.6);margin-top:3px;letter-spacing:.06em;text-transform:uppercase;}
+  .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+  .date-badge{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:5px 12px;font-size:10px;color:rgba(255,255,255,0.75);letter-spacing:.04em;}
+  .source-tag{font-size:9px;color:rgba(255,255,255,0.45);margin-top:4px;text-align:right;}
+  .dashboard{padding:24px 44px 40px;display:flex;flex-direction:column;gap:22px;}
+  .section-header{display:flex;align-items:center;gap:14px;margin-bottom:2px;background:#E2E9F0;margin-left:-44px;margin-right:-44px;padding:10px 44px;flex-wrap:wrap;}
+  .section-label{font-family:var(--serif);font-size:13px;font-weight:600;color:#193C6C;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
+  .section-line{flex:1;height:1px;background:linear-gradient(90deg,#B8C8D8,transparent);min-width:40px;}
+  .section-sub{font-size:10px;color:#193C6C;letter-spacing:.04em;opacity:0.7;}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 14px;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:11px 11px 0 0;background:var(--stripe,var(--accent));}
+  .kpi-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px;}
+  .kpi-value{font-size:21px;font-weight:600;color:var(--accent);}
+  .kpi-change{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:11px;font-weight:500;padding:3px 8px;border-radius:20px;}
+  .kpi-change.up{background:rgba(46,158,107,.1);color:#2e9e6b;}
+  .kpi-change.down{background:rgba(192,57,43,.1);color:#c0392b;}
+  .kpi-change.flat{background:var(--border-light);color:var(--text-muted);}
+  .kpi-sub{font-size:10px;color:var(--text-muted);margin-top:5px;line-height:1.45;}
+
+  .time-selector{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:3px;align-self:flex-start;}
+  .time-btn{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;font-weight:500;padding:7px 20px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:var(--text-muted);letter-spacing:.04em;transition:all .2s;}
+  .time-btn.active{background:var(--accent);color:#fff;}
+  .time-btn:hover:not(.active){background:var(--border-light);color:var(--text-primary);}
+
+  .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:22px 24px;min-width:0;}
+  .panel.full{grid-column:1 / -1;}
+  .panel-title{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--accent);margin-bottom:3px;}
+  .panel-sub{font-size:11.5px;color:var(--text-secondary);margin-bottom:10px;}
+  .panel-subtitle{font-size:10px;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:14px;}
+  .chart-wrap{position:relative;height:200px;}
+  .chart-wrap-tall{position:relative;height:240px;}
+  .empty{color:var(--text-muted);font-size:11px;text-align:center;padding:60px 10px;background:var(--bg);border-radius:9px;border:1px dashed var(--border);}
+
+  .val-tags{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 12px;}
+  .vtag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:3px 9px;border-radius:4px;letter-spacing:.02em;}
+  .vtag.current{background:#eef4ff;color:#2e6da4;border:1px solid #bdd4f0;}
+  .vtag.median{background:#fff3e8;color:#e07820;border:1px solid #f5c992;}
+  .vtag.disc{background:#edfaf3;color:#2e9e6b;border:1px solid #9ee0be;}
+  .vtag.prem{background:#fef0ee;color:#c0392b;border:1px solid #f0b5ae;}
+  .val-notes{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+  .val-note{font-size:10.5px;color:var(--text-secondary);line-height:1.55;padding-left:10px;border-left:2px solid var(--border);}
+  .source-line{font-size:9.5px;color:var(--text-light);padding:0 2px;line-height:1.6;margin-top:-8px;}
+
+  .table-scroll{overflow-x:auto;}
+  .data-table{width:100%;border-collapse:collapse;font-size:10.5px;}
+  .data-table th{color:var(--text-muted);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:9px;padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;background:var(--card);}
+  .data-table td{padding:6px 8px;border-bottom:1px solid var(--border-light);color:var(--text-secondary);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .data-table th:first-child,.data-table td:first-child{text-align:left;}
+  .data-table tr:last-child td{border-bottom:none;}
+  .data-table .pos{color:#2e9e6b;font-weight:600;}
+  .data-table .neg{color:#c0392b;font-weight:600;}
+  .data-table tr.flag td{background:#fef6f5;}
+  .rev-badge{display:inline-block;font-size:8.5px;font-weight:600;letter-spacing:.04em;padding:1px 5px;border-radius:3px;margin-left:6px;background:#fef0ee;color:#c0392b;border:1px solid #f0b5ae;}
+  details.more summary{cursor:pointer;font-size:10.5px;color:var(--accent-light);margin-top:10px;}
+
+  .method{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:18px 24px;}
+  .method-title{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--accent);margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:8px;}
+  .method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 18px;}
+  .note-item{display:flex;gap:8px;align-items:flex-start;}
+  .note-num{font-family:'Playfair Display',Georgia,serif;font-size:16px;font-weight:700;color:var(--accent-light);line-height:1;flex-shrink:0;}
+  .note-text{font-size:10px;color:var(--text-muted);line-height:1.55;}
+  .note-text strong{color:var(--text-secondary);font-weight:500;}
+
+  @media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr);}.method-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:760px){
+    .header{padding:16px;}.header-right{align-items:flex-start;}.source-tag{text-align:left;}
+    .dashboard{padding:16px;}.section-header{margin-left:-16px;margin-right:-16px;padding:10px 16px;}
+    .section-label{white-space:normal;}
+    .kpi-row{grid-template-columns:1fr 1fr;}.charts-row{grid-template-columns:1fr;}.method-grid{grid-template-columns:1fr;}
+    .panel{padding:18px 16px;}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <p class="eyebrow">APP · Ecommerce pixel adoption · BuiltWith</p>
-      <h1 id="title">AppLovin Pixel Tracker</h1>
-    </div>
-    <div class="meta">
-      <div id="asof"></div>
-      <div id="generated"></div>
-      <button class="theme-toggle" id="themeToggle" type="button">Toggle theme</button>
-    </div>
-  </header>
 
-  <div class="kpis" id="kpis"></div>
-
-  <p class="section-title">Adoption</p>
-  <div class="toolbar" id="range" role="group" aria-label="Time range">
-    <button data-weeks="13">3M</button>
-    <button data-weeks="26">6M</button>
-    <button data-weeks="52" aria-pressed="true">1Y</button>
-    <button data-weeks="0">All</button>
+<div class="header">
+  <div class="header-left">
+    <h1>AppLovin (APP) | Ecommerce &amp; Valuation Dashboard</h1>
+    <p>Axon Pixel Adoption (BuiltWith) · Valuation Multiples vs. Unity</p>
   </div>
-  <div class="grid2">
-    <div class="card full">
-      <h2>Live websites with the AppLovin pixel</h2>
-      <p class="sub">Weekly, BuiltWith "Total Live" (excludes redirect domains).</p>
-      <div class="chart-box"><canvas id="cLive" aria-label="Live websites over time"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Week-over-week growth</h2>
-      <p class="sub">WoW % of live sites, with 4-week average.</p>
-      <div class="chart-box"><canvas id="cWow" aria-label="Week over week growth"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Share of sites in the Top 1M</h2>
-      <p class="sub">Top 1M sites ÷ live sites. Rising = larger merchants adopting.</p>
-      <div class="chart-box"><canvas id="cShare" aria-label="Top 1M share"></canvas></div>
-    </div>
-    <div class="card full">
-      <h2>Gross adds vs. churn</h2>
-      <p class="sub">New sites (live + expired, week over week) against sites that dropped the pixel. Only available from the first weekly run onward.</p>
-      <div class="chart-box" id="churnBox"><canvas id="cChurn" aria-label="Gross adds and churn"></canvas></div>
-    </div>
+  <div class="header-right">
+    <div class="date-badge" id="headerBadge"></div>
+    <div class="source-tag">Sources: BuiltWith Trends API (auto-weekly) · Capital IQ (NasdaqGS:APP, NYSE:U)</div>
+  </div>
+</div>
+
+<div class="dashboard">
+
+  <!-- ══ SECTION 1: PIXEL ADOPTION ══ -->
+  <div class="section-header">
+    <div class="section-label">① Ecommerce Pixel Adoption — BuiltWith</div>
+    <div class="section-line"></div>
+    <div class="section-sub" id="pixelSub"></div>
   </div>
 
-  <p class="section-title">Multiples</p>
-  <div class="card" id="multiples"></div>
+  <div class="kpi-row" id="kpis"></div>
 
-  <p class="section-title">Data quality · restatements</p>
-  <div class="card">
-    <h2>Revised history</h2>
-    <p class="sub">Each weekly run re-pulls the previous 6 weeks. Any week whose figures changed versus the last pull is listed here.</p>
-    <div class="table-wrap" id="restatements"></div>
+  <div class="time-selector" id="rangeSel">
+    <button class="time-btn" data-weeks="13">3M</button>
+    <button class="time-btn" data-weeks="26">6M</button>
+    <button class="time-btn active" data-weeks="52">1Y</button>
+    <button class="time-btn" data-weeks="0">All</button>
   </div>
 
-  <p class="section-title">Weekly data</p>
-  <div class="card">
-    <div class="table-wrap" id="table"></div>
-    <details id="moreRows"><summary>Show full history</summary><div class="table-wrap" id="tableAll"></div></details>
+  <div class="charts-row">
+    <div class="panel full">
+      <div class="panel-title">Live Websites with the AppLovin Pixel</div>
+      <div class="panel-subtitle">BuiltWith "Total Live" · Weekly (Saturday) · Excludes redirect-only domains</div>
+      <div class="chart-wrap-tall"><canvas id="cLive"></canvas></div>
+      <div class="val-notes" id="liveNotes"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Week-over-Week Growth (%)</div>
+      <div class="panel-subtitle">WoW % of live websites · Bars weekly · Line 4-week average</div>
+      <div class="chart-wrap"><canvas id="cWow"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Share of Sites in the Top 1M (%)</div>
+      <div class="panel-subtitle">Top 1M sites ÷ live sites · Rising = larger merchants adopting</div>
+      <div class="chart-wrap"><canvas id="cShare"></canvas></div>
+    </div>
+    <div class="panel full">
+      <div class="panel-title">Gross Adds vs. Churn</div>
+      <div class="panel-subtitle">Sites added vs. sites that dropped the pixel · Weekly · Starts with the automated weekly runs</div>
+      <div class="chart-wrap" id="churnBox"><canvas id="cChurn"></canvas></div>
+    </div>
+    <div class="panel full">
+      <div class="panel-title">Weekly Data</div>
+      <div class="panel-subtitle">Most recent 12 weeks · Rows flagged "revised" were restated by BuiltWith after first publication</div>
+      <div class="table-scroll" id="weeklyTable"></div>
+      <details class="more" id="moreRows"><summary>Show full history</summary><div class="table-scroll" id="weeklyTableAll"></div></details>
+    </div>
+    <div class="panel full">
+      <div class="panel-title">Data Quality — Restatements</div>
+      <div class="panel-subtitle">Each weekly run re-pulls the previous 6 weeks · Any change vs. the prior pull is logged here</div>
+      <div class="table-scroll" id="restatements"></div>
+    </div>
   </div>
 
-  <p class="section-title">Methodology &amp; caveats</p>
-  <div class="card notes">
-    <ul>
-      <li><strong>What is counted:</strong> websites where BuiltWith detects AppLovin's tracking pixel (Axon). A site with the pixel is not necessarily an active, paying advertiser.</li>
-      <li><strong>Live vs. redirects:</strong> BuiltWith also lists domains that only redirect to a live site; these are excluded. Third-party trackers that quote larger totals typically include them.</li>
-      <li><strong>Restatements:</strong> BuiltWith re-crawls and can revise past weeks. The series always shows the latest figures; revisions are logged above.</li>
-      <li><strong>Churn:</strong> BuiltWith only reports "expired" sites for the current date, so gross adds and churn start from the first automated weekly run. A site can move from expired back to live, so churn is approximate.</li>
-      <li><strong>Publication lag:</strong> BuiltWith publishes each week's figures roughly 2–3 weeks later. Weeks not yet published are left out (not shown as 0% growth) and are filled in automatically by later runs.</li>
-      <li><strong>Traffic tiers:</strong> Top 1M / 100k / 10k are based on BuiltWith's traffic-rank list, which is refreshed periodically. A sudden step across all tiers in one week (e.g. late Sep-2026) can reflect a rank-list refresh rather than new large merchants.</li>
-      <li><strong>Weeks</strong> are anchored on Saturdays, matching the points on BuiltWith's own chart.</li>
-    </ul>
+  <!-- ══ SECTION 2: VALUATION ══ -->
+  <div class="section-header">
+    <div class="section-label">② Valuation</div>
+    <div class="section-line"></div>
+    <div class="section-sub" id="valSub"></div>
   </div>
+
+  <div class="charts-row" id="valRow">
+    <div class="panel">
+      <div class="panel-title" id="peTitle">P/E NTM</div>
+      <div class="panel-sub">Capital IQ forward multiple · Monthly end-of-period</div>
+      <div class="val-tags" id="peTags"></div>
+      <div class="chart-wrap-tall"><canvas id="cPE"></canvas></div>
+      <div class="val-notes" id="peNotes"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title" id="evTitle">EV/EBITDA NTM</div>
+      <div class="panel-sub">Capital IQ forward multiple · Monthly end-of-period</div>
+      <div class="val-tags" id="evTags"></div>
+      <div class="chart-wrap-tall"><canvas id="cEV"></canvas></div>
+      <div class="val-notes" id="evNotes"></div>
+    </div>
+  </div>
+  <div class="source-line" id="valSource"></div>
+
+  <!-- Methodology -->
+  <div class="method">
+    <div class="method-title">📊 Data Sources &amp; Methodology</div>
+    <div class="method-grid">
+      <div class="note-item"><div class="note-num">①</div><div class="note-text"><strong>What is counted:</strong> websites where BuiltWith detects AppLovin's tracking pixel (Axon). A site with the pixel is not necessarily an active, paying advertiser — treat as a leading indicator of merchant adoption.</div></div>
+      <div class="note-item"><div class="note-num">②</div><div class="note-text"><strong>Live vs. redirects:</strong> BuiltWith also lists domains that only redirect to a live site; these are excluded. Third-party trackers quoting larger totals typically include them. Absolute levels differ across trackers — the trend is the signal.</div></div>
+      <div class="note-item"><div class="note-num">③</div><div class="note-text"><strong>Publication lag:</strong> BuiltWith publishes each week roughly 2–3 weeks later. Unpublished weeks are left out (not shown as 0% growth) and filled in automatically by later runs.</div></div>
+      <div class="note-item"><div class="note-num">④</div><div class="note-text"><strong>Restatements:</strong> BuiltWith re-crawls and can revise past weeks. The series always shows the latest figures; revisions are logged in the Data Quality table.</div></div>
+      <div class="note-item"><div class="note-num">⑤</div><div class="note-text"><strong>Churn &amp; traffic tiers:</strong> "Expired" sites are only reported for the current date, so churn starts with the weekly runs; a site can return from expired to live. Top 1M / 100k / 10k use BuiltWith's periodically refreshed traffic-rank list — a one-week step across all tiers (e.g. late Sep-2026) can reflect a list refresh rather than new large merchants.</div></div>
+      <div class="note-item"><div class="note-num">⑥</div><div class="note-text"><strong>Valuation:</strong> Capital IQ NTM P/E (SP_PE_FWD) and NTM EV/EBITDA (SP_TEV_EBITDA_FWD), monthly end-of-period; the latest point is the workbook's pricing date. "NM" (not meaningful) values are left blank. Updated manually from APP_Dashboard.xlsx.</div></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
 const DATA = /*__DATA__*/null;
 
 (function () {
-  // ── theme toggle ──
-  const rootEl = document.documentElement;
-  try { const t = localStorage.getItem("theme"); if (t) rootEl.dataset.theme = t; } catch (e) {}
-  document.getElementById("themeToggle").addEventListener("click", () => {
-    const dark = getComputedStyle(rootEl).colorScheme.includes("dark");
-    rootEl.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("theme", rootEl.dataset.theme); } catch (e) {}
-    renderCharts();
-  });
-
-  if (!DATA || !DATA.weekly) {
-    document.getElementById("kpis").innerHTML = '<div class="empty">No data yet. Run the backfill workflow.</div>';
-    return;
-  }
-
+  if (!DATA) return;
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const fmtDate = iso => { if (!iso) return "–"; const [y,m,d] = iso.split("-").map(Number); return `${MONTHS[m-1]} ${d}, ${y}`; };
+  const fmtMonth = iso => { const [y,m] = iso.split("-").map(Number); return `${MONTHS[m-1]} ${y}`; };
   const num = v => (v === "" || v === null || v === undefined) ? null : Number(v);
-  const rows = DATA.weekly.map(r => {
-    const o = { ...r };
-    for (const k in o) if (k !== "week" && k !== "restated") o[k] = num(o[k]);
-    return o;
-  });
-  const fmt = (v, d = 0) => v === null ? "–" : v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-  const sign = (v, d = 1, suf = "%") => v === null ? "–" : (v > 0 ? "+" : "") + fmt(v, d) + suf;
-  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const fmt = (v, d = 0) => v === null || v === undefined ? "–" : v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const sign = (v, d = 1, suf = "%") => v === null || v === undefined ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + fmt(Math.abs(v), d) + suf;
+  const cls = v => v === null ? "" : v > 0 ? "pos" : v < 0 ? "neg" : "";
 
-  document.getElementById("title").textContent = DATA.tech + " Pixel Tracker";
+  const TOOLTIP = {backgroundColor:'#1b3a5c',borderColor:'#2e6da4',borderWidth:1,titleColor:'#94b4d4',bodyColor:'#ffffff',padding:9,cornerRadius:6,titleFont:{size:10},bodyFont:{size:11},usePointStyle:true,boxWidth:8,boxHeight:8};
+  const GRID_X = {color:'rgba(46,109,164,0.08)'};
+  const GRID_Y = {color:'rgba(46,109,164,0.14)'};
+  const TICK = {color:'#98a2b3', font:{size:9}};
+  const LEGEND = {display:true, position:'bottom', labels:{color:'#667085', font:{size:9}, boxWidth:10, boxHeight:10, padding:10}};
+
+  // ── header ──
+  const rows = (DATA.weekly || []).map(r => { const o = {...r}; for (const k in o) if (k !== "week" && k !== "restated") o[k] = num(o[k]); return o; });
   const last = rows[rows.length - 1] || {};
-  document.getElementById("asof").textContent = "BuiltWith data through week of " + (last.week || "–");
+  const prev = rows[rows.length - 2] || {};
   const pend = DATA.pending_weeks || [];
-  if (pend.length) {
-    const n = document.createElement("div");
-    n.textContent = pend.length + (pend.length === 1 ? " newer week" : " newer weeks") + " not yet published by BuiltWith";
-    document.getElementById("asof").after(n);
-  }
-  document.getElementById("generated").textContent = "Updated " + DATA.generated_at.replace("T", " ").replace("Z", " UTC");
+  const val = DATA.valuation;
+  const valDate = val && val.pe ? val.pe.dates[val.pe.dates.length - 1] : null;
+  document.getElementById("headerBadge").textContent =
+    `BuiltWith: data through ${fmtDate(last.week)} · Updated ${fmtDate(DATA.generated_at.slice(0,10))}` + (valDate ? ` · Multiples: ${fmtDate(valDate)}` : "");
+  document.getElementById("pixelSub").textContent =
+    `BuiltWith Trends API · Weekly · ${rows.length ? fmtMonth(rows[0].week) + " – " + fmtDate(last.week) : ""}` +
+    (pend.length ? ` · ${pend.length} newer week${pend.length > 1 ? "s" : ""} pending publication` : "") + " · Auto-updated every Saturday";
 
   // ── KPIs ──
+  const pill = (v, d, suf) => `<span class="kpi-change ${v > 0 ? "up" : v < 0 ? "down" : "flat"}">${v > 0 ? "▲" : v < 0 ? "▼" : "■"} ${sign(v, d, suf)}</span>`;
   const lastChurn = [...rows].reverse().find(r => r.churn_pct !== null);
   const kpis = [
-    { label: "Live websites", value: fmt(last.live), note: "Top 1M: " + fmt(last.top_1m) + " · Top 100k: " + fmt(last.hundred_k) },
-    { label: "WoW growth", value: sign(last.wow_pct), cls: last.wow_pct > 0 ? "up" : last.wow_pct < 0 ? "down" : "", note: "Net adds: " + sign(last.net_adds, 0, "") },
-    { label: "4-week avg WoW", value: sign(last.wow_4w_avg_pct), note: "Acceleration: " + sign(last.wow_accel_pp, 1, " pp") },
-    { label: "Top 1M share", value: last.top_1m_share_pct === null ? "–" : fmt(last.top_1m_share_pct, 1) + "%", note: "Outside Top 1M: " + fmt(last.outside_top_1m) },
-    { label: "Weekly churn", value: lastChurn ? fmt(lastChurn.churn_pct, 1) + "%" : "–", note: lastChurn ? "Dropped: " + fmt(lastChurn.churned) + " · Added: " + fmt(lastChurn.gross_adds) : "Available after 2 weekly runs" },
+    { stripe:"var(--c-app)", label:"Live websites", value:fmt(last.live), extra:pill(last.net_adds, 0, ""), sub:`Net adds week of ${fmtDate(last.week)}` },
+    { stripe:"var(--accent-light)", label:"WoW growth", value:sign(last.wow_pct, 1), extra:pill(last.wow_accel_pp, 1, " pp"), sub:"Change vs. prior week's WoW" },
+    { stripe:"var(--c-peer1)", label:"4-week avg WoW", value:sign(last.wow_4w_avg_pct, 1), extra:pill(last.wow_4w_avg_pct !== null && prev.wow_4w_avg_pct !== null ? +(last.wow_4w_avg_pct - prev.wow_4w_avg_pct).toFixed(2) : null, 1, " pp"), sub:"Smooths weekly crawl noise" },
+    { stripe:"var(--c-peer3)", label:"Top 1M share", value:last.top_1m_share_pct === null ? "–" : fmt(last.top_1m_share_pct, 1) + "%", extra:"", sub:`Top 1M: ${fmt(last.top_1m)} · Top 100k: ${fmt(last.hundred_k)} · Top 10k: ${fmt(last.ten_k)}` },
+    { stripe:"var(--negative)", label:"Weekly churn", value:lastChurn ? fmt(lastChurn.churn_pct, 2) + "%" : "–", extra:"", sub:lastChurn ? `Dropped ${fmt(lastChurn.churned)} · Added ${fmt(lastChurn.gross_adds)} (wk of ${fmtDate(lastChurn.week)})` : "Builds up from the automated weekly runs" },
   ];
   document.getElementById("kpis").innerHTML = kpis.map(k =>
-    `<div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls || ""}">${k.value}</div><div class="note">${k.note}</div></div>`).join("");
+    `<div class="kpi-card" style="--stripe:${k.stripe}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div>${k.extra}<div class="kpi-sub">${k.sub}</div></div>`).join("");
 
-  // ── charts ──
+  // ── pixel charts ──
   let weeks = 52;
   const charts = {};
-  document.querySelectorAll("#range button").forEach(b => b.addEventListener("click", () => {
-    document.querySelectorAll("#range button").forEach(x => x.setAttribute("aria-pressed", "false"));
-    b.setAttribute("aria-pressed", "true");
-    weeks = Number(b.dataset.weeks);
-    renderCharts();
+  document.querySelectorAll("#rangeSel .time-btn").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("#rangeSel .time-btn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active"); weeks = Number(b.dataset.weeks); renderPixel();
   }));
 
-  function baseOptions(ySuffix = "", yDecimals = 0) {
+  function opts(unit, dec, legend) {
     return {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false, labels: { color: css("--text-secondary"), boxWidth: 10, boxHeight: 10, usePointStyle: true } },
-        tooltip: {
-          backgroundColor: css("--surface"), titleColor: css("--text-primary"), bodyColor: css("--text-secondary"),
-          borderColor: css("--border"), borderWidth: 1, padding: 10, usePointStyle: true,
-          callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y === null ? "–" : (ySuffix === "%" ? sign(c.parsed.y, 2) : fmt(c.parsed.y, yDecimals) + ySuffix)}` },
-        },
-      },
-      scales: {
-        x: { grid: { display: false }, border: { color: css("--border") }, ticks: { color: css("--text-muted"), maxRotation: 0, autoSkipPadding: 18, font: { size: 11 } } },
-        y: { grid: { color: css("--grid") }, border: { display: false }, ticks: { color: css("--text-muted"), font: { size: 11 }, callback: v => fmt(v, yDecimals) + ySuffix } },
+      responsive:true, maintainAspectRatio:false, animation:{duration:300},
+      interaction:{mode:'index', intersect:false},
+      plugins:{ legend: legend ? LEGEND : {display:false},
+        tooltip:{...TOOLTIP, callbacks:{ title:c => fmtDate(c[0].label), label:c => ` ${c.dataset.label}: ${c.parsed.y === null ? "n/a" : (unit === "%" && c.dataset.signed ? sign(c.parsed.y, 2) : fmt(c.parsed.y, dec) + unit)}` }} },
+      scales:{
+        x:{grid:GRID_X, ticks:{...TICK, maxTicksLimit:(window.innerWidth < 600 ? 4 : 8), maxRotation:0, callback(v){ return fmtMonth(this.getLabelForValue(v)); }}},
+        y:{grid:GRID_Y, ticks:{...TICK, callback:v => fmt(v, 0) + unit}},
       },
     };
   }
+  const lineDs = (label, data, color, extra = {}) => ({label, data, borderColor:color, backgroundColor:color, borderWidth:2, pointRadius:0, pointHoverRadius:4, tension:0.3, fill:false, spanGaps:true, ...extra});
 
-  function renderCharts() {
+  function lastPointLabel(text, color) {
+    return { id:'lastPointLabel', afterDraw(chart) {
+      const meta = chart.getDatasetMeta(0); const pt = meta.data[meta.data.length - 1]; if (!pt) return;
+      const {ctx, chartArea} = chart; ctx.save();
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fillStyle = color; ctx.fill();
+      ctx.font = '600 9.5px "Segoe UI", system-ui, sans-serif'; const tw = ctx.measureText(text).width, pad = 5;
+      const bx = Math.max(chartArea.left + 2, pt.x - tw - pad*2 - 8), by = Math.max(chartArea.top, pt.y - 22);
+      ctx.fillStyle = '#eef4ff'; ctx.strokeStyle = '#bdd4f0'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(bx, by, tw + pad*2, 16, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#2e6da4'; ctx.fillText(text, bx + pad, by + 11.5); ctx.restore();
+    }};
+  }
+
+  function renderPixel() {
     Object.values(charts).forEach(c => c.destroy());
     const view = weeks ? rows.slice(-weeks) : rows;
     const labels = view.map(r => r.week);
-    const s1 = css("--series-1"), s2 = css("--series-2");
+    if (!view.length) return;
 
     charts.live = new Chart(document.getElementById("cLive"), {
-      type: "line",
-      data: { labels, datasets: [{ label: "Live websites", data: view.map(r => r.live), borderColor: s1, backgroundColor: s1, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.2 }] },
-      options: baseOptions(),
+      type:'line',
+      data:{labels, datasets:[lineDs("Live websites", view.map(r => r.live), '#1b3a5c', {fill:true, backgroundColor:'rgba(27,58,92,0.06)'})]},
+      options:opts("", 0, false),
+      plugins:[lastPointLabel(`${fmtDate(last.week)}: ${fmt(last.live)}`, '#1b3a5c')],
     });
 
-    const wowOpts = baseOptions("%", 1);
-    wowOpts.plugins.legend.display = true;
-    wowOpts.plugins.legend.labels.generateLabels = chart =>
-      Chart.defaults.plugins.legend.labels.generateLabels(chart).map(l =>
-        l.text === "WoW %" ? { ...l, fillStyle: css("--pos"), strokeStyle: css("--pos") } : l);
+    const wo = opts("%", 1, true); wo.scales.y.ticks.callback = v => fmt(v, 0) + "%";
     charts.wow = new Chart(document.getElementById("cWow"), {
-      data: {
-        labels,
-        datasets: [
-          { type: "bar", label: "WoW %", data: view.map(r => r.wow_pct), backgroundColor: view.map(r => (r.wow_pct ?? 0) >= 0 ? css("--pos") : css("--neg")), borderRadius: 3, maxBarThickness: 14, order: 2 },
-          { type: "line", label: "4-wk avg", data: view.map(r => r.wow_4w_avg_pct), borderColor: css("--text-primary"), backgroundColor: css("--text-primary"), borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.2, order: 1 },
-        ],
-      },
-      options: wowOpts,
+      data:{labels, datasets:[
+        {type:'bar', label:'WoW %', signed:true, data:view.map(r => r.wow_pct), backgroundColor:view.map(r => (r.wow_pct ?? 0) >= 0 ? '#2e6da4' : '#c0392b'), borderRadius:2, maxBarThickness:12, order:2},
+        lineDs('4-wk avg', view.map(r => r.wow_4w_avg_pct), '#e8a020', {type:'line', signed:true, order:1}),
+      ]},
+      options:wo,
     });
+    charts.wow.options.plugins.legend.labels.generateLabels = ch =>
+      Chart.defaults.plugins.legend.labels.generateLabels(ch).map(l => l.text === 'WoW %' ? {...l, fillStyle:'#2e6da4', strokeStyle:'#2e6da4'} : l);
+    charts.wow.update();
 
     charts.share = new Chart(document.getElementById("cShare"), {
-      type: "line",
-      data: { labels, datasets: [{ label: "Top 1M share", data: view.map(r => r.top_1m_share_pct), borderColor: s1, backgroundColor: s1, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.2 }] },
-      options: baseOptions("%", 1),
+      type:'line', data:{labels, datasets:[lineDs("Top 1M share", view.map(r => r.top_1m_share_pct), '#1a7a6e')]},
+      options:opts("%", 1, false),
     });
 
     const churnRows = view.filter(r => r.gross_adds !== null);
     const box = document.getElementById("churnBox");
     if (!churnRows.length) {
-      box.innerHTML = '<div class="empty">Starts after two weekly runs — BuiltWith only reports expired sites for the current date.</div>';
+      box.className = ""; box.innerHTML = '<div class="empty">Gross adds and churn start after two automated weekly runs — BuiltWith only reports expired sites for the current date.</div>';
     } else {
-      if (!document.getElementById("cChurn")) box.innerHTML = '<canvas id="cChurn"></canvas>';
-      const o = baseOptions();
-      o.plugins.legend.display = true;
+      if (!document.getElementById("cChurn")) { box.className = "chart-wrap"; box.innerHTML = '<canvas id="cChurn"></canvas>'; }
       charts.churn = new Chart(document.getElementById("cChurn"), {
-        type: "bar",
-        data: {
-          labels: churnRows.map(r => r.week),
-          datasets: [
-            { label: "Gross adds", data: churnRows.map(r => r.gross_adds), backgroundColor: s1, borderRadius: 3, maxBarThickness: 18 },
-            { label: "Churned", data: churnRows.map(r => r.churned), backgroundColor: s2, borderRadius: 3, maxBarThickness: 18 },
-          ],
-        },
-        options: o,
+        type:'bar',
+        data:{labels:churnRows.map(r => r.week), datasets:[
+          {label:'Gross adds', data:churnRows.map(r => r.gross_adds), backgroundColor:'#2e6da4', borderRadius:2, maxBarThickness:18},
+          {label:'Churned', data:churnRows.map(r => r.churned), backgroundColor:'#c0392b', borderRadius:2, maxBarThickness:18},
+        ]},
+        options:opts("", 0, true),
       });
     }
   }
-  renderCharts();
+  renderPixel();
+
+  // live-chart takeaway
+  if (rows.length > 26) {
+    const yAgo = rows[Math.max(0, rows.length - 53)], q = rows[rows.length - 14];
+    const g = (a, b) => b && b.live ? ((a.live / b.live - 1) * 100) : null;
+    document.getElementById("liveNotes").innerHTML =
+      `<div class="val-note">${fmt(last.live)} live websites as of ${fmtDate(last.week)} — ${sign(g(last, q), 1)} over 13 weeks and ${sign(g(last, yAgo), 1)} vs. ${fmtDate(yAgo.week)}. Top 1M share ${fmt(last.top_1m_share_pct, 1)}% vs. ${fmt(yAgo.top_1m_share_pct, 1)}% a year earlier: ${last.top_1m_share_pct < yAgo.top_1m_share_pct ? "growth is led by smaller merchants" : "larger merchants are gaining share"}.</div>`;
+  }
 
   // ── tables ──
   const cols = [
-    ["week", "Week", r => r.week + (r.restated ? ' <span class="badge">revised</span>' : "")],
-    ["live", "Live", r => fmt(r.live)],
-    ["net_adds", "Net adds", r => sign(r.net_adds, 0, "")],
-    ["wow_pct", "WoW", r => sign(r.wow_pct, 2)],
-    ["wow_4w_avg_pct", "4-wk avg", r => sign(r.wow_4w_avg_pct, 2)],
-    ["top_1m", "Top 1M", r => fmt(r.top_1m)],
-    ["hundred_k", "Top 100k", r => fmt(r.hundred_k)],
-    ["ten_k", "Top 10k", r => fmt(r.ten_k)],
-    ["top_1m_share_pct", "Top 1M %", r => r.top_1m_share_pct === null ? "–" : fmt(r.top_1m_share_pct, 1) + "%"],
-    ["gross_adds", "Gross adds", r => fmt(r.gross_adds)],
-    ["churned", "Churned", r => fmt(r.churned)],
-    ["churn_pct", "Churn %", r => r.churn_pct === null ? "–" : fmt(r.churn_pct, 2) + "%"],
+    ["Week", r => fmtDate(r.week) + (r.restated ? '<span class="rev-badge">REVISED</span>' : "")],
+    ["Live", r => fmt(r.live)],
+    ["Net adds", r => `<span class="${cls(r.net_adds)}">${sign(r.net_adds, 0, "")}</span>`],
+    ["WoW", r => `<span class="${cls(r.wow_pct)}">${sign(r.wow_pct, 2)}</span>`],
+    ["4-wk avg", r => sign(r.wow_4w_avg_pct, 2)],
+    ["Top 1M", r => fmt(r.top_1m)],
+    ["Top 100k", r => fmt(r.hundred_k)],
+    ["Top 10k", r => fmt(r.ten_k)],
+    ["Top 1M %", r => r.top_1m_share_pct === null ? "–" : fmt(r.top_1m_share_pct, 1) + "%"],
+    ["Gross adds", r => fmt(r.gross_adds)],
+    ["Churned", r => fmt(r.churned)],
+    ["Churn %", r => r.churn_pct === null ? "–" : fmt(r.churn_pct, 2) + "%"],
   ];
-  const tableHtml = list => `<table><thead><tr>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>${
-    [...list].reverse().map(r => `<tr class="${r.restated ? "flag" : ""}">${cols.map(c => `<td>${c[2](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-  document.getElementById("table").innerHTML = tableHtml(rows.slice(-12));
-  if (rows.length > 12) document.getElementById("tableAll").innerHTML = tableHtml(rows.slice(0, -12));
-  else document.getElementById("moreRows").remove();
+  const table = list => `<table class="data-table"><thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead><tbody>${
+    [...list].reverse().map(r => `<tr class="${r.restated ? "flag" : ""}">${cols.map(c => `<td>${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  document.getElementById("weeklyTable").innerHTML = table(rows.slice(-12));
+  if (rows.length > 12) document.getElementById("weeklyTableAll").innerHTML = table(rows.slice(0, -12)); else document.getElementById("moreRows").remove();
 
   const rs = DATA.restatements || [];
+  const FIELD = {live:"Live", top_1m:"Top 1M", hundred_k:"Top 100k", ten_k:"Top 10k"};
   document.getElementById("restatements").innerHTML = rs.length
-    ? `<table><thead><tr><th>Week</th><th>Field</th><th>Previous</th><th>Revised</th><th>Change</th><th>Detected (UTC)</th></tr></thead><tbody>${
-        [...rs].reverse().map(r => `<tr><td>${r.as_of}</td><td>${r.field}</td><td>${fmt(num(r.old_value))}</td><td>${fmt(num(r.new_value))}</td><td>${sign(num(r.diff), 0, "")}</td><td>${r.detected_at_utc.replace("T", " ").replace("Z", "")}</td></tr>`).join("")}</tbody></table>`
-    : '<div class="empty">No revisions detected so far.</div>';
+    ? `<table class="data-table"><thead><tr><th>Week</th><th>Metric</th><th>Previous</th><th>Revised</th><th>Change</th><th>Detected</th></tr></thead><tbody>${
+        [...rs].reverse().map(r => `<tr><td>${fmtDate(r.as_of)}</td><td>${FIELD[r.field] || r.field}</td><td>${fmt(num(r.old_value))}</td><td>${fmt(num(r.new_value))}</td><td class="${cls(num(r.diff))}">${sign(num(r.diff), 0, "")}</td><td>${fmtDate(r.detected_at_utc.slice(0,10))}</td></tr>`).join("")}</tbody></table>`
+    : '<div class="empty" style="padding:22px 10px;">No revisions detected so far.</div>';
 
-  // ── multiples (filled from data/multiples.csv once provided) ──
-  const m = DATA.multiples || [];
-  const mEl = document.getElementById("multiples");
-  if (!m.length) {
-    mEl.innerHTML = '<div class="empty">Multiples section pending — will be populated from the valuation workbook.</div>';
+  // ── valuation ──
+  const PEER_COLORS = ['#e8a020', '#6B4EAF', '#1a7a6e'];
+  const pretty = n => /^applovin$/i.test(n) ? "AppLovin" : n;
+  if (!val) {
+    document.getElementById("valRow").innerHTML = '<div class="panel full"><div class="empty">Valuation pending — upload data/APP_Dashboard.xlsx.</div></div>';
   } else {
-    const keys = Object.keys(m[0]);
-    mEl.innerHTML = `<div class="table-wrap"><table><thead><tr>${keys.map(k => `<th>${k}</th>`).join("")}</tr></thead><tbody>${
-      m.map(r => `<tr>${keys.map(k => `<td>${r[k] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    const d0 = (val.pe || val.ev).dates;
+    document.getElementById("valSub").textContent = `Capital IQ · NTM multiples · Monthly · ${fmtMonth(d0[0])} – ${fmtDate(d0[d0.length - 1])} · n=${d0.length} observations`;
+    const tick = (val.pe || val.ev).tickers.filter(Boolean).join(", ");
+    document.getElementById("valSource").textContent = `Source: Capital IQ (${tick}) · Updated manually from APP_Dashboard.xlsx (tabs "PE NTM" / "EVEBITDA NTM") · Peer series start when Capital IQ reports a meaningful (non-NM) multiple.`;
+    renderVal("pe", "P/E NTM", "cPE", "peTitle", "peTags", "peNotes");
+    renderVal("ev", "EV/EBITDA NTM", "cEV", "evTitle", "evTags", "evNotes");
+  }
+
+  function median(arr) { const v = arr.filter(x => x != null).sort((a,b) => a-b); if (!v.length) return null; const m = Math.floor(v.length/2); return v.length % 2 ? v[m] : (v[m-1]+v[m])/2; }
+
+  function renderVal(key, title, canvasId, titleId, tagsId, notesId) {
+    const d = val[key]; if (!d) return;
+    const [subj, ...peers] = d.names;
+    const S = pretty(subj), labels = d.dates, li = labels.length - 1;
+    const sv = d.series[subj], sLast = sv[li];
+    document.getElementById(titleId).textContent = `${title} — ${S} vs. ${peers.map(pretty).join(", ")}`;
+
+    const med = median(sv);
+    const tags = [`<span class="vtag current">${S} (${fmtDate(labels[li])}): ${fmt(sLast,1)}x</span>`,
+                  `<span class="vtag median">${S} median (${labels[0].slice(0,4)}–${labels[li].slice(0,4)}): ${fmt(med,1)}x</span>`];
+    const notes = [];
+    peers.forEach(p => {
+      const v = d.series[p][li]; if (v == null) return;
+      tags.push(`<span class="vtag ${v > sLast ? "prem" : "disc"}">${pretty(p)}: ${fmt(v,1)}x</span>`);
+      const rel = (sLast - v) / v * 100;
+      notes.push(`${S} trades at ${fmt(sLast,1)}x, ${rel < 0 ? "a discount of" : "a premium of"} ${fmt(Math.abs(rel),1)}% vs. ${pretty(p)} (${fmt(v,1)}x).`);
+    });
+    const vsMed = (sLast - med) / med * 100;
+    notes.push(`${S} is ${vsMed < 0 ? "below" : "above"} its own ${labels[0].slice(0,4)}–${labels[li].slice(0,4)} median of ${fmt(med,1)}x — a ${fmt(Math.abs(vsMed),1)}% ${vsMed < 0 ? "discount" : "premium"}.`);
+
+    // keep the subject readable: cap the axis when a peer spikes far above it
+    const sMax = Math.max(...sv.filter(x => x != null));
+    const step = sMax * 1.15 > 80 ? 20 : 10;
+    const cap = Math.ceil(sMax * 1.15 / step) * step;
+    const clipped = [];
+    peers.forEach(p => d.series[p].forEach((v, i) => { if (v != null && v > cap) clipped.push({p, i, v}); }));
+    if (clipped.length) {
+      const peak = clipped.reduce((a, b) => b.v > a.v ? b : a);
+      notes.push(`Axis capped at ${cap}x: ${pretty(peak.p)} exceeded it in ${clipped.length} month${clipped.length > 1 ? "s" : ""} between ${fmtMonth(labels[clipped[0].i])} and ${fmtMonth(labels[clipped[clipped.length-1].i])} (peak ${fmt(peak.v,1)}x, ${fmtMonth(labels[peak.i])}).`);
+    }
+    document.getElementById(tagsId).innerHTML = tags.join("");
+    document.getElementById(notesId).innerHTML = notes.map(n => `<div class="val-note">${n}</div>`).join("");
+
+    const datasets = [lineDs(S, sv, '#1b3a5c', {borderWidth:2.25})].concat(peers.map((p, k) => lineDs(pretty(p), d.series[p], PEER_COLORS[k % PEER_COLORS.length])));
+    const o = opts("x", 1, true);
+    o.plugins.tooltip.callbacks.title = c => fmtMonth(c[0].label);
+    o.plugins.tooltip.callbacks.label = c => ` ${c.dataset.label}: ${c.parsed.y == null ? "n/a" : fmt(c.parsed.y, 1) + "x"}`;
+    if (clipped.length) { o.scales.y.max = cap; o.scales.y.ticks.stepSize = step; }
+    o.scales.y.min = 0;
+    new Chart(document.getElementById(canvasId), {
+      type:'line', data:{labels, datasets}, options:o,
+      plugins:[lastPointLabel(`${S} ${fmtMonth(labels[li])}: ${fmt(sLast,1)}x`, '#1b3a5c')],
+    });
   }
 })();
 </script>
