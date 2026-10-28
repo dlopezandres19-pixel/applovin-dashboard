@@ -18,6 +18,8 @@ Everything runs on GitHub Actions — nothing to install locally.
 - `data/snapshots.csv` — every API pull ever made (raw, never overwritten)
 - `data/weekly.csv` — one row per week with WoW %, net adds, 4-wk avg, Top 1M share, churn
 - `data/restatements.csv` — weeks BuiltWith revised after the fact
+- `data/churn.csv` — gross adds / churn between consecutive weekly runs
+- `data/app_prices.csv` — APP daily close (Yahoo Finance, Nasdaq fallback; optional `STOOQ_API_KEY` secret as third source)
 - `data/APP_Dashboard.xlsx` — Capital IQ multiples (tabs "PE NTM" / "EVEBITDA NTM"), uploaded manually
 - `docs/index.html` — the dashboard (open in any browser)
 

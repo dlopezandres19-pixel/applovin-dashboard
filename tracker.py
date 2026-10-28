@@ -46,6 +46,8 @@ DATA = ROOT / "data"
 SNAPSHOTS = DATA / "snapshots.csv"      # every API pull, never overwritten
 WEEKLY = DATA / "weekly.csv"            # one row per week, with metrics
 RESTATEMENTS = DATA / "restatements.csv"
+CHURN = DATA / "churn.csv"              # gross adds / churn, one row per weekly run
+PRICES = DATA / "app_prices.csv"        # APP daily close (Yahoo / Nasdaq / Stooq)
 VALUATION_XLSX = DATA / "APP_Dashboard.xlsx"   # Capital IQ export, updated manually
 VALUATION_TABS = {"pe": "PE NTM", "ev": "EVEBITDA NTM"}
 DASHBOARD = ROOT / "docs" / "index.html"
@@ -223,21 +225,21 @@ def find_restatements(old_snaps: list[dict], new_rows: list[dict]) -> list[dict]
 WEEKLY_FIELDS = [
     "week", "live", "top_1m", "hundred_k", "ten_k", "outside_top_1m",
     "top_1m_share_pct", "net_adds", "wow_pct", "wow_4w_avg_pct",
-    "wow_accel_pp", "expired", "live_plus_expired", "gross_adds",
-    "churned", "churn_pct", "restated",
+    "wow_accel_pp", "app_close_usd", "restated",
 ]
+CHURN_FIELDS = ["pull_week", "pulled_at_utc", "live", "expired", "live_plus_expired",
+                "gross_adds", "churned", "net_adds", "churn_pct"]
 
 
 def pct(a, b):
     return None if a is None or b in (None, 0) else round((a - b) / b * 100, 2)
 
 
-def build_weekly(snaps: list[dict], restatements: list[dict]) -> list[dict]:
+def build_weekly(snaps: list[dict], restatements: list[dict], prices: list[tuple]) -> list[dict]:
     """One row per published week. Counts come from the latest dated pull for
-    that week (consistent query type over time). Expired only exists in
-    current-mode pulls; each current pull is attached to the published week
-    whose figures it matches (because of BuiltWith's publication lag, a pull
-    made today usually reflects a week that ended 2-3 weeks earlier)."""
+    that week (consistent query type over time). Weeks BuiltWith has not
+    published yet are excluded. app_close_usd = last APP close on or before
+    the week date (Friday close for a Saturday week)."""
     dated: dict[str, dict] = {}
     for s in snaps:
         if s["mode"] == "date":
@@ -245,25 +247,16 @@ def build_weekly(snaps: list[dict], restatements: list[dict]) -> list[dict]:
     restated_weeks = {r["as_of"] for r in restatements}
     weeks = sorted(set(dated) - pending_weeks(dated))
 
-    current: dict[str, dict] = {}
-    for s in snaps:
-        if s["mode"] != "current":
-            continue
-        match = [w for w in weeks if w <= s["as_of"] and counts_key(dated[w]) == counts_key(s)]
-        if match:
-            current[match[-1]] = s                     # later pulls win
-
     rows: list[dict] = []
+    pi = 0
     for w in weeks:
         src = dated[w]
-        cur = current.get(w, {})
         r = {"week": w}
         for f in COUNT_FIELDS:
             r[f] = to_int(src.get(f))
-        lpe = to_int(cur.get("live_plus_expired"))
-        live_cur = to_int(cur.get("live"))
-        r["live_plus_expired"] = lpe
-        r["expired"] = (lpe - live_cur) if (lpe is not None and live_cur is not None) else None
+        while pi < len(prices) and prices[pi][0] <= w:
+            pi += 1
+        r["app_close_usd"] = prices[pi - 1][1] if pi and (date.fromisoformat(w) - date.fromisoformat(prices[pi - 1][0])).days <= 7 else None
         r["outside_top_1m"] = (r["live"] - r["top_1m"]) if None not in (r["live"], r["top_1m"]) else None
         r["top_1m_share_pct"] = round(r["top_1m"] / r["live"] * 100, 1) if r["live"] and r["top_1m"] is not None else None
         r["restated"] = "yes" if w in restated_weeks else ""
@@ -276,14 +269,101 @@ def build_weekly(snaps: list[dict], restatements: list[dict]) -> list[dict]:
         last4 = [x["wow_pct"] for x in rows[max(0, i - 3): i + 1] if x["wow_pct"] is not None]
         r["wow_4w_avg_pct"] = round(sum(last4) / len(last4), 2) if len(last4) == 4 else None
         r["wow_accel_pp"] = round(r["wow_pct"] - p["wow_pct"], 2) if p and None not in (r["wow_pct"], p.get("wow_pct")) else None
-        # churn: only between two consecutive weeks that both have a current pull
-        if p and None not in (r["live_plus_expired"], p["live_plus_expired"], r["expired"], p["expired"]):
-            r["gross_adds"] = r["live_plus_expired"] - p["live_plus_expired"]
-            r["churned"] = r["expired"] - p["expired"]
-            r["churn_pct"] = round(r["churned"] / p["live"] * 100, 2) if p["live"] else None
-        else:
-            r["gross_adds"] = r["churned"] = r["churn_pct"] = None
     return [{k: ("" if r.get(k) is None else r.get(k)) for k in WEEKLY_FIELDS} for r in rows]
+
+
+def build_churn(snaps: list[dict]) -> list[dict]:
+    """Gross adds and churn come only from 'current' pulls - the only query
+    where BuiltWith returns expired sites. One row per weekly run (pull_week =
+    Saturday of the run; the latest pull that week wins). Between two runs:
+      gross_adds = change in live+expired  (websites first detected ever)
+      churned    = change in expired       (net of sites that came back)
+      net_adds   = change in live          (= gross_adds - churned)
+      churn_pct  = churned / live at the previous run"""
+    pulls: dict[str, dict] = {}
+    for s in snaps:
+        if s["mode"] == "current":
+            pulls[s["as_of"]] = s
+    rows, prev = [], None
+    for wk in sorted(pulls):
+        s = pulls[wk]
+        live, lpe = to_int(s.get("live")), to_int(s.get("live_plus_expired"))
+        if live is None or lpe is None:
+            continue
+        r = {"pull_week": wk, "pulled_at_utc": s["pulled_at_utc"], "live": live,
+             "expired": lpe - live, "live_plus_expired": lpe,
+             "gross_adds": None, "churned": None, "net_adds": None, "churn_pct": None}
+        if prev:
+            r["gross_adds"] = lpe - prev["live_plus_expired"]
+            r["churned"] = r["expired"] - prev["expired"]
+            r["net_adds"] = live - prev["live"]
+            r["churn_pct"] = round(r["churned"] / prev["live"] * 100, 2) if prev["live"] else None
+        rows.append(r)
+        prev = r
+    return [{k: ("" if r.get(k) is None else r.get(k)) for k in CHURN_FIELDS} for r in rows]
+
+
+# ── APP share price (free public endpoints, no key) ─────────────────────────
+PRICE_TICKER = os.environ.get("PRICE_TICKER", "APP")
+PRICE_START = "2024-12-01"
+UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+      "Accept": "application/json,text/csv,*/*"}
+
+
+def _prices_yahoo() -> list[tuple]:
+    t0 = int(datetime(2024, 12, 1, tzinfo=timezone.utc).timestamp())
+    r = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{PRICE_TICKER}",
+                     params={"period1": t0, "period2": int(time.time()), "interval": "1d"}, headers=UA, timeout=30)
+    r.raise_for_status()
+    res = r.json()["chart"]["result"][0]
+    closes = res["indicators"]["quote"][0]["close"]
+    return [(datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d"), round(c, 2))
+            for ts, c in zip(res["timestamp"], closes) if c is not None]
+
+
+def _prices_nasdaq() -> list[tuple]:
+    r = requests.get(f"https://api.nasdaq.com/api/quote/{PRICE_TICKER}/historical",
+                     params={"assetclass": "stocks", "fromdate": PRICE_START,
+                             "todate": date.today().isoformat(), "limit": 9999},
+                     headers={**UA, "Origin": "https://www.nasdaq.com", "Referer": "https://www.nasdaq.com/"}, timeout=30)
+    r.raise_for_status()
+    out = []
+    for row in r.json()["data"]["tradesTable"]["rows"]:
+        m, d, y = row["date"].split("/")
+        out.append((f"{y}-{m}-{d}", round(float(row["close"].replace("$", "").replace(",", "")), 2)))
+    return sorted(out)
+
+
+def _prices_stooq() -> list[tuple]:
+    key = os.environ.get("STOOQ_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("STOOQ_API_KEY not set")
+    r = requests.get("https://stooq.com/q/d/l/", params={"s": f"{PRICE_TICKER.lower()}.us", "i": "d", "apikey": key},
+                     headers=UA, timeout=30)
+    r.raise_for_status()
+    rows = list(csv.DictReader(r.text.splitlines()))
+    return [(x["Date"], round(float(x["Close"]), 2)) for x in rows if x.get("Date", "") >= PRICE_START]
+
+
+def update_prices() -> None:
+    """Refreshes data/app_prices.csv. Never fails the run: if every source is
+    down, the previous file is kept and the dashboard uses it as is."""
+    load_env_file()
+    for name, fn in (("Yahoo", _prices_yahoo), ("Nasdaq", _prices_nasdaq), ("Stooq", _prices_stooq)):
+        try:
+            rows = fn()
+            if len(rows) > 50:
+                write_csv(PRICES, ["date", "close"], [{"date": d, "close": c} for d, c in rows])
+                print(f"Precios {PRICE_TICKER}: {len(rows)} días desde {name} (último {rows[-1][0]}: {rows[-1][1]})")
+                return
+            print(f"  {name}: respuesta muy corta ({len(rows)} filas)")
+        except Exception as e:                          # noqa: BLE001
+            print(f"  {name}: no disponible ({str(e)[:120]})")
+    print("AVISO: no se pudieron actualizar los precios; se usa el archivo anterior si existe.")
+
+
+def read_prices() -> list[tuple]:
+    return [(r["date"], float(r["close"])) for r in read_csv(PRICES) if r.get("close")]
 
 
 # ── valuation (Capital IQ workbook) ──────────────────────────────────────────
@@ -321,11 +401,15 @@ def read_valuation() -> dict | None:
 
 
 # ── dashboard ────────────────────────────────────────────────────────────────
-def build_dashboard() -> None:
+def build_dashboard(refresh_prices: bool = True) -> None:
+    if refresh_prices:
+        update_prices()
     snaps = read_csv(SNAPSHOTS)
     restatements = read_csv(RESTATEMENTS)
-    weekly = build_weekly(snaps, restatements)
+    weekly = build_weekly(snaps, restatements, read_prices())
+    churn = build_churn(snaps)
     write_csv(WEEKLY, WEEKLY_FIELDS, weekly)
+    write_csv(CHURN, CHURN_FIELDS, churn)
 
     dated = {s["as_of"]: s for s in snaps if s["mode"] == "date"}
     payload = {
@@ -333,6 +417,8 @@ def build_dashboard() -> None:
         "generated_at": now_utc(),
         "pending_weeks": sorted(pending_weeks(dated)),
         "weekly": weekly,
+        "churn": churn,
+        "price_ticker": PRICE_TICKER,
         "restatements": restatements[-200:],
         "valuation": read_valuation(),
     }
