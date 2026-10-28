@@ -24,7 +24,7 @@ jobs:
       - name: Pull BuiltWith and rebuild dashboard
         env:
           BUILTWITH_API_KEY: ${{ secrets.BUILTWITH_API_KEY }}
-        run: python tracker.py weekly --recheck 4
+        run: python tracker.py weekly --recheck 6
       - name: Commit results
         run: |
           git config user.name "github-actions[bot]"
