@@ -12,10 +12,11 @@ Commands
       One-off: fills the weekly history back to --start (1 API credit per week).
       Weeks already stored are skipped, so re-running costs nothing extra.
 
-  python tracker.py weekly [--recheck 4]
+  python tracker.py weekly [--recheck 6]
       Normal weekly run: 1 "current" pull (the only one that returns Expired)
-      + 1 dated pull for this week + re-pulls the previous N weeks to catch
-      restatements. Default cost: 6 credits per run.
+      + 1 dated pull for this week + re-pulls the previous N weeks. The
+      re-pulls pick up weeks BuiltWith publishes late (~2-3 week lag) and
+      detect restatements. Default: 8 calls per run.
 
   python tracker.py build
       Recomputes metrics and writes docs/index.html. No API calls.
@@ -173,16 +174,39 @@ def snapshot_row(mode: str, as_of: date, values: dict) -> dict:
 
 
 # ── restatement detection ────────────────────────────────────────────────────
+def counts_key(s: dict) -> tuple:
+    return tuple(to_int(s.get(f)) for f in COUNT_FIELDS)
+
+
+def pending_weeks(dated: dict[str, dict]) -> set[str]:
+    """BuiltWith publishes with a lag of ~2-3 weeks. Asking for a date past its
+    latest data point returns that latest point again, so the newest weeks come
+    back as exact copies of the last published week. Those trailing copies are
+    'pending' (not yet published) and are left out of the series until real
+    figures arrive on a later weekly run."""
+    weeks = sorted(dated)
+    pending: set[str] = set()
+    for i in range(len(weeks) - 1, 0, -1):
+        if counts_key(dated[weeks[i]]) == counts_key(dated[weeks[i - 1]]):
+            pending.add(weeks[i])
+        else:
+            break
+    return pending
+
+
 def find_restatements(old_snaps: list[dict], new_rows: list[dict]) -> list[dict]:
     """Compare each new dated pull with the latest earlier dated pull for the
-    same week. Current-mode pulls are never compared (different query type)."""
+    same week. Current-mode pulls are never compared (different query type).
+    Weeks that were still pending (copies of the prior week) are not
+    restatements when real figures arrive - that is just publication."""
     latest: dict[str, dict] = {}
     for s in old_snaps:
         if s["mode"] == "date":
             latest[s["as_of"]] = s
+    was_pending = pending_weeks(latest)
     out = []
     for n in new_rows:
-        if n["mode"] != "date" or n["as_of"] not in latest:
+        if n["mode"] != "date" or n["as_of"] not in latest or n["as_of"] in was_pending:
             continue
         prev = latest[n["as_of"]]
         for f in COUNT_FIELDS:
@@ -208,22 +232,29 @@ def pct(a, b):
 
 
 def build_weekly(snaps: list[dict], restatements: list[dict]) -> list[dict]:
-    """One row per anchor week. Counts come from the latest dated pull for that
-    week (consistent query type over time); Expired comes from the current pull
-    made that week, since dated pulls return -1 for it."""
+    """One row per published week. Counts come from the latest dated pull for
+    that week (consistent query type over time). Expired only exists in
+    current-mode pulls; each current pull is attached to the published week
+    whose figures it matches (because of BuiltWith's publication lag, a pull
+    made today usually reflects a week that ended 2-3 weeks earlier)."""
     dated: dict[str, dict] = {}
-    current: dict[str, dict] = {}
     for s in snaps:
         if s["mode"] == "date":
             dated[s["as_of"]] = s                      # later rows win
-        else:
-            current[s["as_of"]] = s
     restated_weeks = {r["as_of"] for r in restatements}
+    weeks = sorted(set(dated) - pending_weeks(dated))
 
-    weeks = sorted(set(dated) | set(current))
+    current: dict[str, dict] = {}
+    for s in snaps:
+        if s["mode"] != "current":
+            continue
+        match = [w for w in weeks if w <= s["as_of"] and counts_key(dated[w]) == counts_key(s)]
+        if match:
+            current[match[-1]] = s                     # later pulls win
+
     rows: list[dict] = []
     for w in weeks:
-        src = dated.get(w) or current.get(w)
+        src = dated[w]
         cur = current.get(w, {})
         r = {"week": w}
         for f in COUNT_FIELDS:
@@ -261,9 +292,11 @@ def build_dashboard() -> None:
     weekly = build_weekly(snaps, restatements)
     write_csv(WEEKLY, WEEKLY_FIELDS, weekly)
 
+    dated = {s["as_of"]: s for s in snaps if s["mode"] == "date"}
     payload = {
         "tech": TECH,
         "generated_at": now_utc(),
+        "pending_weeks": sorted(pending_weeks(dated)),
         "weekly": weekly,
         "restatements": restatements[-200:],
         "multiples": read_csv(MULTIPLES),
@@ -320,7 +353,7 @@ def main() -> None:
     b.add_argument("--start", default=DEFAULT_START)
     b.add_argument("--dry-run", action="store_true")
     w = sub.add_parser("weekly")
-    w.add_argument("--recheck", type=int, default=4)
+    w.add_argument("--recheck", type=int, default=6)
     sub.add_parser("build")
     args = p.parse_args()
     {"backfill": cmd_backfill, "weekly": cmd_weekly, "build": lambda a: build_dashboard()}[args.cmd](args)

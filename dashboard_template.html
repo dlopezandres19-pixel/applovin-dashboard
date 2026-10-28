@@ -147,7 +147,7 @@ details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5
   <p class="section-title">Data quality · restatements</p>
   <div class="card">
     <h2>Revised history</h2>
-    <p class="sub">Each weekly run re-pulls the previous 4 weeks. Any week whose figures changed versus the last pull is listed here.</p>
+    <p class="sub">Each weekly run re-pulls the previous 6 weeks. Any week whose figures changed versus the last pull is listed here.</p>
     <div class="table-wrap" id="restatements"></div>
   </div>
 
@@ -164,6 +164,8 @@ details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5
       <li><strong>Live vs. redirects:</strong> BuiltWith also lists domains that only redirect to a live site; these are excluded. Third-party trackers that quote larger totals typically include them.</li>
       <li><strong>Restatements:</strong> BuiltWith re-crawls and can revise past weeks. The series always shows the latest figures; revisions are logged above.</li>
       <li><strong>Churn:</strong> BuiltWith only reports "expired" sites for the current date, so gross adds and churn start from the first automated weekly run. A site can move from expired back to live, so churn is approximate.</li>
+      <li><strong>Publication lag:</strong> BuiltWith publishes each week's figures roughly 2–3 weeks later. Weeks not yet published are left out (not shown as 0% growth) and are filled in automatically by later runs.</li>
+      <li><strong>Traffic tiers:</strong> Top 1M / 100k / 10k are based on BuiltWith's traffic-rank list, which is refreshed periodically. A sudden step across all tiers in one week (e.g. late Sep-2026) can reflect a rank-list refresh rather than new large merchants.</li>
       <li><strong>Weeks</strong> are anchored on Saturdays, matching the points on BuiltWith's own chart.</li>
     </ul>
   </div>
@@ -200,7 +202,13 @@ const DATA = /*__DATA__*/null;
 
   document.getElementById("title").textContent = DATA.tech + " Pixel Tracker";
   const last = rows[rows.length - 1] || {};
-  document.getElementById("asof").textContent = "Week of " + (last.week || "–");
+  document.getElementById("asof").textContent = "BuiltWith data through week of " + (last.week || "–");
+  const pend = DATA.pending_weeks || [];
+  if (pend.length) {
+    const n = document.createElement("div");
+    n.textContent = pend.length + (pend.length === 1 ? " newer week" : " newer weeks") + " not yet published by BuiltWith";
+    document.getElementById("asof").after(n);
+  }
   document.getElementById("generated").textContent = "Updated " + DATA.generated_at.replace("T", " ").replace("Z", " UTC");
 
   // ── KPIs ──
@@ -258,6 +266,9 @@ const DATA = /*__DATA__*/null;
 
     const wowOpts = baseOptions("%", 1);
     wowOpts.plugins.legend.display = true;
+    wowOpts.plugins.legend.labels.generateLabels = chart =>
+      Chart.defaults.plugins.legend.labels.generateLabels(chart).map(l =>
+        l.text === "WoW %" ? { ...l, fillStyle: css("--pos"), strokeStyle: css("--pos") } : l);
     charts.wow = new Chart(document.getElementById("cWow"), {
       data: {
         labels,
