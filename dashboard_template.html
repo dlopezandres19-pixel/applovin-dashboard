@@ -69,7 +69,9 @@
   .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
   .toggle{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--text-secondary);cursor:pointer;user-select:none;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 10px;}
   .toggle input{accent-color:#c4953a;width:14px;height:14px;cursor:pointer;}
-  .toggle .swatch{width:16px;height:0;border-top:2px dashed #c4953a;}
+  .toggle .swatch{width:16px;height:0;border-top:2px solid var(--sw,#c4953a);}
+  .toggle .swatch.dash{border-top-style:dashed;}
+  .toggle-group{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
   .source-line{font-size:9.5px;color:var(--text-light);padding:0 2px;line-height:1.6;margin-top:-8px;}
 
   .table-scroll{overflow-x:auto;}
@@ -140,11 +142,15 @@
           <div class="panel-title">Live Websites with the AppLovin Pixel</div>
           <div class="panel-subtitle">BuiltWith "Total Live" · Weekly (Saturday) · Excludes redirect-only domains</div>
         </div>
-        <label class="toggle" id="priceToggleWrap" style="display:none"><input type="checkbox" id="priceToggle"><span class="swatch"></span><span id="priceToggleLabel">Show APP share price (right axis)</span></label>
+        <div class="toggle-group">
+          <label class="toggle"><input type="checkbox" id="t1mToggle"><span class="swatch" style="--sw:#1a7a6e"></span>Top 1M sites</label>
+          <label class="toggle"><input type="checkbox" id="t100kToggle"><span class="swatch" style="--sw:#6B4EAF"></span>Top 100k sites</label>
+          <label class="toggle" id="priceToggleWrap" style="display:none"><input type="checkbox" id="priceToggle"><span class="swatch dash"></span><span id="priceToggleLabel">Show APP share price (right axis)</span></label>
+        </div>
       </div>
       <div class="chart-wrap-tall"><canvas id="cLive"></canvas></div>
       <div class="val-notes" id="liveNotes"></div>
-      <div class="chart-def"><strong>What this shows:</strong> each point is the number of distinct websites on which BuiltWith's crawler detected AppLovin's tracking pixel (Axon) as of that week — BuiltWith's "Total Live" count. Domains that only redirect to one of those sites are not counted. A live site has the pixel installed; it is <em>not</em> necessarily an active, paying advertiser. Weeks are Saturdays; BuiltWith publishes each week 2–3 weeks later, so the latest point lags today's date. <span id="priceDef"></span></div>
+      <div class="chart-def"><strong>What this shows:</strong> each point is the number of distinct websites on which BuiltWith's crawler detected AppLovin's tracking pixel (Axon) as of that week — BuiltWith's "Total Live" count. Domains that only redirect to one of those sites are not counted. A live site has the pixel installed; it is <em>not</em> necessarily an active, paying advertiser. Weeks are Saturdays; BuiltWith publishes each week 2–3 weeks later, so the latest point lags today's date. Optional overlays: <strong>Top 1M / Top 100k sites</strong> — how many of the live sites rank in BuiltWith's top 1 million / 100 thousand websites by traffic (same left axis; a proxy for larger merchants). <span id="priceDef"></span></div>
     </div>
     <div class="panel">
       <div class="panel-title">Week-over-Week Growth (%)</div>
@@ -330,8 +336,12 @@ const DATA = /*__DATA__*/null;
     document.getElementById("priceToggleWrap").style.display = "inline-flex";
     document.getElementById("priceToggleLabel").textContent = `Show NASDAQ: ${tick} share price (right axis)`;
     document.getElementById("priceToggle").addEventListener("change", e => { showPrice = e.target.checked; renderPixel(); });
-    document.getElementById("priceDef").textContent = `Optional overlay: NASDAQ: ${tick} closing price (USD) on the last trading day on or before each week, on the right axis.`;
+    document.getElementById("priceDef").textContent = `NASDAQ: ${tick} share price — closing price (USD) on the last trading day on or before each week, on the right axis.`;
   }
+
+  let showT1m = false, showT100k = false;
+  document.getElementById("t1mToggle").addEventListener("change", e => { showT1m = e.target.checked; renderPixel(); });
+  document.getElementById("t100kToggle").addEventListener("change", e => { showT100k = e.target.checked; renderPixel(); });
 
   function renderPixel() {
     Object.values(charts).forEach(c => c.destroy());
@@ -339,8 +349,10 @@ const DATA = /*__DATA__*/null;
     const labels = view.map(r => r.week);
     if (!view.length) return;
 
-    const lo = opts("", 0, showPrice);
+    const lo = opts("", 0, showPrice || showT1m || showT100k);
     const liveSets = [lineDs("Live websites", view.map(r => r.live), '#1b3a5c', {fill:true, backgroundColor:'rgba(27,58,92,0.06)', yAxisID:'y'})];
+    if (showT1m) liveSets.push(lineDs("Top 1M sites", view.map(r => r.top_1m), '#1a7a6e', {yAxisID:'y'}));
+    if (showT100k) liveSets.push(lineDs("Top 100k sites", view.map(r => r.hundred_k), '#6B4EAF', {yAxisID:'y'}));
     if (showPrice) {
       liveSets.push(lineDs(`${tick} share price`, view.map(r => r.app_close_usd), '#c4953a', {borderDash:[5,3], borderWidth:1.75, yAxisID:'y1', isPrice:true}));
       lo.scales.y1 = {position:'right', grid:{drawOnChartArea:false}, border:{display:false},
